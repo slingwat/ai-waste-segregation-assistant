@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Waste Segregation Assistant</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <nav>
+        <div class="logo">♻️ EcoAI</div>
+        <div class="nav-text">AI Waste Segregation Assistant</div>
+    </nav>
+
+    <main>
+
+        <section class="hero">
+
+            <div class="badge">
+                🌱 AI + Sustainability
+            </div>
+
+            <h1>
+                Smart Waste<br>
+                <span>Segregation Assistant</span>
+            </h1>
+
+            <p>
+                Use AI to identify everyday waste and get
+                simple, responsible disposal guidance.
+            </p>
+
+        </section>
+
+
+        <section class="upload-card">
+
+            <!-- ST4: drag-and-drop zone wraps all interactive upload content -->
+            <div id="drop-zone">
+
+                <div class="upload-icon">📷</div>
+
+                <h2>Upload Waste Image</h2>
+
+                <p>
+                    Upload a clear photo of the waste item
+                    you want to classify.
+                    <br>
+                    <small style="color:#888;">Or drag and drop an image here.</small>
+                </p>
+
+                <input
+                    type="file"
+                    id="imageInput"
+                    accept="image/*"
+                    onchange="previewImage()"
+                >
+
+                <label for="imageInput" class="choose-btn">
+                    📁 Choose Image
+                </label>
+
+            </div><!-- /drop-zone -->
+
+            <div id="preview-container">
+                <img id="preview" alt="Selected waste image">
+            </div>
+
+            <button
+                id="analyzeButton"
+                onclick="analyzeWaste()"
+            >
+                🤖 Analyze Waste
+            </button>
+
+            <p id="loading"></p>
+
+        </section>
+
+
+        <section id="result" class="result">
+
+            <div class="result-header">
+                <span>🤖</span>
+                <h2>AI Analysis</h2>
+            </div>
+
+            <p class="placeholder">
+                Your AI analysis will appear here.
+            </p>
+
+        </section>
+
+
+        <section class="info-section">
+
+            <div class="info-card">
+                <div>🧠</div>
+                <h3>AI Powered</h3>
+                <p>
+                    Uses computer vision to understand
+                    the uploaded waste item.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <div>♻️</div>
+                <h3>Waste Classification</h3>
+                <p>
+                    Suggests an appropriate waste
+                    category.
+                </p>
+            </div>
+
+            <div class="info-card">
+                <div>🌍</div>
+                <h3>Sustainable</h3>
+                <p>
+                    Encourages responsible waste
+                    disposal and sustainability.
+                </p>
+            </div>
+
+        </section>
+
+
+        <footer>
+            <p>
+                ♻️ AI Waste Segregation Assistant
+                &nbsp; | &nbsp;
+                SDG 12 — Responsible Consumption and Production
+            </p>
+
+            <p class="disclaimer">
+                AI-generated guidance should be verified with
+                local waste-management rules.
+            </p>
+        </footer>
+
+    </main>
+
+
+    <script>
+
+        /* ─── Image preview ───────────────────────────────── */
+
+        function previewImage() {
+            const input     = document.getElementById("imageInput");
+            const preview   = document.getElementById("preview");
+            const container = document.getElementById("preview-container");
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    preview.src = event.target.result;
+                    container.style.display = "block";
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+
+        /* ─── ST4: Drag-and-drop ──────────────────────────── */
+
+        const dropZone = document.getElementById("drop-zone");
+
+        dropZone.addEventListener("dragover", function (e) {
+            e.preventDefault();
+            dropZone.classList.add("drag-over");
+        });
+
+        dropZone.addEventListener("dragenter", function (e) {
+            e.preventDefault();
+            dropZone.classList.add("drag-over");
+        });
+
+        dropZone.addEventListener("dragleave", function () {
+            dropZone.classList.remove("drag-over");
+        });
+
+        dropZone.addEventListener("drop", function (e) {
+            e.preventDefault();
+            dropZone.classList.remove("drag-over");
+
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith("image/")) {
+                alert("Please drop an image file (JPG, PNG, WebP, etc.).");
+                return;
+            }
+
+            // Assign dropped file to the input so analyzeWaste() reads it normally
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById("imageInput").files = dt.files;
+
+            previewImage();
+        });
+
+
+        /* ─── ST3: Error message map ──────────────────────── */
+
+        const ERROR_MESSAGES = {
+            no_file:      "No image was received. Please choose a file and try again.",
+            invalid_file: "That file doesn't look like an image. Please upload a JPG, PNG, or WebP.",
+            file_too_large: "The image is too large (max 10 MB). Please resize it and try again.",
+            ai_error:     "The AI service returned an error. Please wait a moment and try again.",
+            ai_parse_error: "The AI response was in an unexpected format. Please try again.",
+            server_error: "Something went wrong on our end. Please try again."
+        };
+
+        function errorHTML(message) {
+            return `
+                <div class="result-header">
+                    <span>⚠️</span>
+                    <h2>Error</h2>
+                </div>
+                <p style="text-align:center; color:#b71c1c; margin: 16px 0;">${message}</p>
+                <div style="text-align:center;">
+                    <button onclick="analyzeWaste()" style="margin-top:8px;">
+                        🔄 Try Again
+                    </button>
+                </div>
+            `;
+        }
+
+
+        /* ─── ST2: Category badge colour map ─────────────── */
+
+        const CATEGORY_COLORS = {
+            "Wet/Organic":      "#2e7d32",
+            "Dry/Recyclable":   "#1565c0",
+            "E-Waste":          "#6a1b9a",
+            "Hazardous":        "#bf360c",
+            "Other":            "#546e7a"
+        };
+
+        function getCategoryColor(category) {
+            for (const key of Object.keys(CATEGORY_COLORS)) {
+                if (category.toLowerCase().includes(key.toLowerCase())) {
+                    return CATEGORY_COLORS[key];
+                }
+            }
+            return "#546e7a";
+        }
+
+        function getConfidenceClass(confidence) {
+            const map = { "High": "confidence-high", "Medium": "confidence-medium", "Low": "confidence-low" };
+            return map[confidence] || "confidence-low";
+        }
+
+
+        /* ─── ST2 + ST5: Render structured result ─────────── */
+
+        function renderResult(data) {
+            const badgeColor = getCategoryColor(data.category);
+            const confClass  = getConfidenceClass(data.confidence);
+
+            // ST5: caution banner for Low / Medium confidence
+            const showCaution = data.confidence === "Low" || data.confidence === "Medium";
+            const cautionBanner = showCaution ? `
+                <div class="caution-banner">
+                    ⚠️ AI confidence is <strong>${data.confidence}</strong>.
+                    Always verify disposal guidance with your local waste-management authority.
+                </div>` : "";
+
+            return `
+                <div class="result-header">
+                    <span>🤖</span>
+                    <h2>AI Analysis</h2>
+                </div>
+
+                <div class="result-card">
+
+                    <span class="category-badge"
+                          style="background:${badgeColor};">
+                        ${data.category}
+                    </span>
+
+                    <div class="result-row">
+                        <span class="result-label">Item</span>
+                        <span class="result-value">${data.item}</span>
+                    </div>
+
+                    <div class="result-row">
+                        <span class="result-label">Reason</span>
+                        <span class="result-value">${data.reason}</span>
+                    </div>
+
+                    <div class="result-row">
+                        <span class="result-label">Disposal</span>
+                        <span class="result-value">
+                            ${data.disposal}
+                            <!-- ST5: inline disclaimer below disposal -->
+                            <span class="disposal-disclaimer">
+                                AI-generated guidance. Verify with local waste-management rules.
+                            </span>
+                        </span>
+                    </div>
+
+                    <div class="result-row">
+                        <span class="result-label">Confidence</span>
+                        <span class="result-value">
+                            <span class="confidence-tag ${confClass}">${data.confidence}</span>
+                        </span>
+                    </div>
+
+                    ${cautionBanner}
+
+                </div>
+            `;
+        }
+
+
+        /* ─── Main analyze flow ───────────────────────────── */
+
+        async function analyzeWaste() {
+
+            const imageInput  = document.getElementById("imageInput");
+            const result      = document.getElementById("result");
+            const loading     = document.getElementById("loading");
+            const button      = document.getElementById("analyzeButton");
+
+            if (!imageInput.files.length) {
+                alert("Please select a waste image first.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("image", imageInput.files[0]);
+
+            button.disabled       = true;
+            button.innerHTML      = "🔄 Analyzing...";
+            loading.innerHTML     = "🤖 AI is analyzing your image...";
+
+            result.innerHTML = `
+                <div class="result-header">
+                    <span>🤖</span>
+                    <h2>AI Analysis</h2>
+                </div>
+                <div class="loading-box">
+                    <div class="spinner"></div>
+                    <p>Understanding the waste item...</p>
+                </div>
+            `;
+
+            try {
+
+                const response = await fetch("/analyze", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    const msg = ERROR_MESSAGES[data.error_code] || data.error;
+                    result.innerHTML = errorHTML(msg);
+                } else {
+                    result.innerHTML = renderResult(data.result);
+                }
+
+            } catch (error) {
+
+                result.innerHTML = errorHTML(
+                    "Unable to connect to the AI service. Please check your connection and try again."
+                );
+                console.error(error);
+
+            }
+
+            button.disabled   = false;
+            button.innerHTML  = "🤖 Analyze Waste";
+            loading.innerHTML = "";
+
+            // ST4: auto-scroll to result
+            document.getElementById("result").scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+
+        }
+
+    </script>
+
+</body>
+
+</html>
